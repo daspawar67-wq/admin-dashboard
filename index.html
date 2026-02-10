@@ -823,27 +823,24 @@
         box-shadow: var(--shadow-sm);
       }
       /* ================= YEAR SELECTOR ================= */
-      .year-selector-container {
+     .year-selector-container {
         background: var(--gray-50);
         border-radius: var(--radius-sm);
         padding: 16px;
         margin-bottom: 20px;
         border: 1px solid var(--gray-200);
-       
-      
       }
       .year-selector-title {
         font-weight: 600;
         color: var(--gray-700);
         margin-bottom: 10px;
         font-size: 16px;
-      text-align: center;
+        text-align: center;
       }
       .year-selector-form {
         display: flex;
         gap: 12px;
-   
-        justify-content: center;
+justify-content: center;
         flex-wrap: wrap;
       }
       .year-select {
@@ -1501,13 +1498,13 @@
           totalLeads += Math.floor(summary.off / 2) * 1; // 1 lead per 2 offers
         }
         
-        // Repeater: 1 = 0 leads, 2 = 1 lead
-        if (summary.rep >= 2) {
-          totalLeads += Math.floor(summary.rep / 2) * 1; // 1 lead per 2 repeaters
-        }
+        // Repeater: 1 = 0 leads, 2 = 0 leads (no leads from repeaters)
+        // No calculation needed for repeater leads
         
-        // Family: 1 = 0 leads, 2 = 0 leads (no leads from family)
-        // No calculation needed for family leads
+        // Family: 1 = 0 leads, 2 = 1 leads
+        if (summary.app >= 2) {
+          totalLeads += Math.floor(summary.app / 2) * 1; // 1 lead per 2 family members
+        }
         
         // Update the monthly leads for the employee
         salesData.monthlyLeads[emp][monthIndex] = totalLeads;
@@ -1575,8 +1572,8 @@
             additionalLeads += Math.floor(summary.off / 2) * 1; // 1 lead per 2 offers
           }
           
-          if (summary.rep >= 2) {
-            additionalLeads += Math.floor(summary.rep / 2) * 1; // 1 lead per 2 repeaters
+          if (summary.app >= 2) {
+            additionalLeads += Math.floor(summary.app / 2) * 1; // 1 lead per 2 family members
           }
           
           // CONNECTION: Add the calculated leads to the 3rd carousel's structure for the target month.
