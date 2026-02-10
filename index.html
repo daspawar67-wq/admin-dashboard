@@ -822,6 +822,41 @@
         margin-left: 12px;
         box-shadow: var(--shadow-sm);
       }
+      /* ================= YEAR SELECTOR ================= */
+      .year-selector-container {
+        background: var(--gray-50);
+        border-radius: var(--radius-sm);
+        padding: 16px;
+        margin-bottom: 20px;
+        border: 1px solid var(--gray-200);
+       
+      
+      }
+      .year-selector-title {
+        font-weight: 600;
+        color: var(--gray-700);
+        margin-bottom: 10px;
+        font-size: 16px;
+      text-align: center;
+      }
+      .year-selector-form {
+        display: flex;
+        gap: 12px;
+   
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      .year-select {
+        min-width: 150px;
+      }
+      .month-year-select {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+      .month-year-select .select-modern {
+        flex: 1;
+      }
     </style>
   </head>
   <body>
@@ -980,6 +1015,20 @@
                         <button class="btn btn-sm btn-light ms-auto" onclick="downloadChartsAsPDF('webinar-charts.pdf')"><i class="bi bi-download"></i> PDF</button>
                     </div>
                     <div class="card-body-custom">
+                        <div class="year-selector-container">
+                            <div class="year-selector-title">Select Year for Webinar Leads</div>
+                            <div class="year-selector-form">
+                                <select id="webinarYearSelect" class="select-modern year-select" onchange="updateWebinarYear()">
+                                    <option value="2025">2025</option>
+                                    <option value="2026">2026</option>
+                                    <option value="2027">2027</option>
+                                    <option value="2028">2028</option>
+                                    <option value="2029">2029</option>
+                                    <option value="2030">2030</option>
+                                </select>
+                                <span class="batch-info-badge" id="currentYearBadge">2025</span>
+                            </div>
+                        </div>
                         <form id="webinarLeadForm" class="row g-3">
                             <div class="col-md-4"><label class="form-label fw-semibold">Select Month</label><select id="webinarMonth" class="select-modern w-100"><option value="Jan">January</option><option value="Feb">February</option><option value="Mar">March</option><option value="Apr">April</option><option value="May">May</option><option value="Jun">June</option><option value="Jul">July</option><option value="Aug">August</option><option value="Sep">September</option><option value="Oct">October</option><option value="Nov">November</option><option value="Dec">December</option></select></div>
                             <div class="col-md-4"><label class="form-label fw-semibold">Lead Count</label><input type="number" id="webinarLeadCount" class="form-control-modern w-100" placeholder="Enter total leads" /></div>
@@ -1021,7 +1070,7 @@
       let salesData = { employees: [], dailyBookings: {}, leadSummary: {}, monthlyLeads: {} };
       let batchData = { employees: [], batches: [], batchLeads: {}, thc: {} };
       let monthlyBatchData = [];
-      let webinarMonthlyLeads = {};
+      let webinarMonthlyLeads = {}; // Will be structured as {year: {month: count}}
       let customHeaders = {
         daily: [], summary: ["Team Member", "Fresher", "Offer", "Repeater", "Family", "TOTAL"], monthly: ["Team Member"], batch: ["Team Member"], batchTable: ["Team Member"],
       };
@@ -1029,6 +1078,7 @@
       let currentMonthlyBatchFilter = "all";
       let currentSummaryMonth = new Date().getMonth();
       let currentMonthlyMonth = new Date().getMonth();
+      let currentWebinarYear = "2025"; // Current year for webinar leads
       
       // Employee batch mapping
       let employeeBatches = {};
@@ -1064,7 +1114,27 @@
             }
           }
           customHeaders = data.customHeaders || customHeaders;
-          webinarMonthlyLeads = data.webinarLeads || {};
+          
+          // Handle webinar leads data structure with years
+          if (data.webinarLeads) {
+            if (typeof data.webinarLeads === 'object' && !Array.isArray(data.webinarLeads)) {
+              // Check if it's already structured with years
+              if (Object.keys(data.webinarLeads)[0] && !isNaN(Object.keys(data.webinarLeads)[0])) {
+                webinarMonthlyLeads = data.webinarLeads;
+              } else {
+                // Convert old format to new format with years
+                webinarMonthlyLeads = {};
+                webinarMonthlyLeads[currentWebinarYear] = data.webinarLeads;
+              }
+            } else {
+              webinarMonthlyLeads = {};
+              webinarMonthlyLeads[currentWebinarYear] = {};
+            }
+          } else {
+            webinarMonthlyLeads = {};
+            webinarMonthlyLeads[currentWebinarYear] = {};
+          }
+          
           employeeBatches = data.employeeBatches || {};
           
           salesData.employees.forEach(emp => {
@@ -1113,12 +1183,31 @@
         const month = document.getElementById("webinarMonth").value;
         const count = Number(document.getElementById("webinarLeadCount").value);
         if (isNaN(count) || count < 0) { showNotification("Please enter a valid lead count", "warning"); return; }
-        webinarMonthlyLeads[month] = count;
+        
+        // Initialize year object if it doesn't exist
+        if (!webinarMonthlyLeads[currentWebinarYear]) {
+          webinarMonthlyLeads[currentWebinarYear] = {};
+        }
+        
+        webinarMonthlyLeads[currentWebinarYear][month] = count;
         await saveAllData();
-        showNotification(`Leads for ${month} saved successfully!`, "success");
+        showNotification(`Leads for ${month} ${currentWebinarYear} saved successfully!`, "success");
         document.getElementById("webinarLeadCount").value = '';
         renderWebinarPieChart();
         renderWebinarBarChart();
+      }
+
+      // Function to update the current year for webinar leads
+      function updateWebinarYear() {
+        const yearSelect = document.getElementById("webinarYearSelect");
+        currentWebinarYear = yearSelect.value;
+        document.getElementById("currentYearBadge").textContent = currentWebinarYear;
+        
+        // Re-render charts with the new year's data
+        renderWebinarPieChart();
+        renderWebinarBarChart();
+        
+        showNotification(`Switched to ${currentWebinarYear} webinar data`, "success");
       }
 
       async function addSalesEmployee() {
@@ -1389,20 +1478,39 @@
         const newValue = Number(v) || 0;
         salesData.leadSummary[emp][currentSummaryMonth][k] = newValue;
         
-        // Apply the logic based on the field and value for the CURRENT month
-        if (k === 'pre' && newValue > 0) {
-          salesData.monthlyLeads[emp][currentSummaryMonth] += 1;
-          showNotification(`Added 1 lead to ${customHeaders.monthly[currentSummaryMonth + 1]} for ${emp} (Fresher)`, "success");
-        } else if (k === 'off' && newValue >= 2) {
-          salesData.monthlyLeads[emp][currentSummaryMonth] += 1;
-          showNotification(`Added 1 lead to ${customHeaders.monthly[currentSummaryMonth + 1]} for ${emp} (Offer)`, "success");
-        } else if (k === 'app' && newValue >= 2) {
-          salesData.monthlyLeads[emp][currentSummaryMonth] += 1;
-          showNotification(`Added 1 lead to ${customHeaders.monthly[currentSummaryMonth + 1]} for ${emp} (Family)`, "success");
-        }
+        // Calculate the total leads for the current month based on the new logic
+        calculateMonthlyLeads(emp, currentSummaryMonth);
         
         renderSummary();
         renderMonthly();
+      }
+      
+      // New function to calculate monthly leads based on the specific rules
+      function calculateMonthlyLeads(emp, monthIndex) {
+        const summary = salesData.leadSummary[emp][monthIndex];
+        let totalLeads = 0;
+        
+        // Apply the specific calculation rules
+        // Fresher: 1 = 1 lead
+        if (summary.pre > 0) {
+          totalLeads += summary.pre * 1; // 1 lead per fresher
+        }
+        
+        // Offer: 1 = 0 leads, 2 = 1 lead
+        if (summary.off >= 2) {
+          totalLeads += Math.floor(summary.off / 2) * 1; // 1 lead per 2 offers
+        }
+        
+        // Repeater: 1 = 0 leads, 2 = 1 lead
+        if (summary.rep >= 2) {
+          totalLeads += Math.floor(summary.rep / 2) * 1; // 1 lead per 2 repeaters
+        }
+        
+        // Family: 1 = 0 leads, 2 = 0 leads (no leads from family)
+        // No calculation needed for family leads
+        
+        // Update the monthly leads for the employee
+        salesData.monthlyLeads[emp][monthIndex] = totalLeads;
       }
       
       function updateMonthly(emp, monthIndex, val) { salesData.monthlyLeads[emp][monthIndex] = Number(val) || 0; renderMonthly(); }
@@ -1467,8 +1575,8 @@
             additionalLeads += Math.floor(summary.off / 2) * 1; // 1 lead per 2 offers
           }
           
-          if (summary.app >= 2) {
-            additionalLeads += Math.floor(summary.app / 2) * 1; // 1 lead per 2 family members
+          if (summary.rep >= 2) {
+            additionalLeads += Math.floor(summary.rep / 2) * 1; // 1 lead per 2 repeaters
           }
           
           // CONNECTION: Add the calculated leads to the 3rd carousel's structure for the target month.
@@ -1534,8 +1642,11 @@
       
       function renderWebinarPieChart() {
         const ctx = document.getElementById("webinarPieChart");
-        const labels = Object.keys(webinarMonthlyLeads);
-        const data = Object.values(webinarMonthlyLeads);
+        
+        // Get data for the current year
+        const currentYearData = webinarMonthlyLeads[currentWebinarYear] || {};
+        const labels = Object.keys(currentYearData);
+        const data = Object.values(currentYearData);
         
         if (webinarChart) {
           webinarChart.destroy();
@@ -1598,9 +1709,14 @@
                   label: function(context) {
                     const label = context.label || '';
                     const value = context.raw || 0;
-                    return `${label}: ${value} leads`;
+                    return `${label}: ${value} leads (${currentWebinarYear})`;
                   }
                 }
+              },
+              title: {
+                display: true,
+                text: `Webinar Leads - ${currentWebinarYear}`,
+                font: { size: 16, weight: "bold" }
               }
             },
             animation: {
@@ -1614,8 +1730,11 @@
       
       function renderWebinarBarChart() {
         const ctx = document.getElementById("webinarBarChart");
-        const labels = Object.keys(webinarMonthlyLeads);
-        const data = Object.values(webinarMonthlyLeads);
+        
+        // Get data for the current year
+        const currentYearData = webinarMonthlyLeads[currentWebinarYear] || {};
+        const labels = Object.keys(currentYearData);
+        const data = Object.values(currentYearData);
         
         if (webinarBarChart) {
           webinarBarChart.destroy();
@@ -1630,7 +1749,7 @@
           data: {
             labels: labels,
             datasets: [{
-              label: "Lead Count",
+              label: `${currentWebinarYear} Lead Count`,
               data: data,
               backgroundColor: gradient,
               borderColor: "#1e3a8a",
@@ -1650,21 +1769,37 @@
                 titleFont: { size: 14, weight: "bold" },
                 bodyFont: { size: 12 },
                 callbacks: {
+                  title: function(context) {
+                    return `${context[0].label} ${currentWebinarYear}`;
+                  },
                   label: function(context) {
                     return `Leads: ${context.raw}`;
                   }
                 }
+              },
+              title: {
+                display: true,
+                text: `Monthly Webinar Leads - ${currentWebinarYear}`,
+                font: { size: 16, weight: "bold" }
               }
             },
             scales: {
               y: {
                 beginAtZero: true,
                 grid: { color: "rgba(0, 0, 0, 0.05)" },
-                ticks: { font: { size: 11 } }
+                ticks: { font: { size: 11 } },
+                title: {
+                  display: true,
+                  text: "Number of Leads"
+                }
               },
               x: {
                 grid: { display: false },
-                ticks: { font: { size: 11 } }
+                ticks: { font: { size: 11 } },
+                title: {
+                  display: true,
+                  text: "Month"
+                }
               }
             },
             animation: { duration: 1000, easing: "easeInOutQuart" }
@@ -1676,6 +1811,8 @@
       document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("summaryMonthSelect").value = currentSummaryMonth;
         document.getElementById("monthlyMonthSelect").value = currentMonthlyMonth;
+        document.getElementById("webinarYearSelect").value = currentWebinarYear;
+        document.getElementById("currentYearBadge").textContent = currentWebinarYear;
         
         // Initialize sample employee batch data
         if (salesData.employees.length > 0 && Object.keys(employeeBatches).length === 0) {
