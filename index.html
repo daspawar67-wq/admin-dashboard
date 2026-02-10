@@ -928,32 +928,16 @@ justify-content: center;
                         <div class="batch-selection-container">
                           <div class="row">
                             <div class="col-12 col-md-12 col-lg-12">
-                            <div class="batch-selection-title">Month Selection for Lead Performance</div>
+                            <div class="batch-selection-title">Batch Selection for Lead Performance</div>
                             <div class="batch-selection-form">
-                                <select id="summaryMonthSelect" class="select-modern batch-select" onchange="renderSummary()">
-                                    <option value="0">January</option><option value="1">February</option><option value="2">March</option><option value="3">April</option><option value="4">May</option><option value="5">June</option><option value="6">July</option><option value="7">August</option><option value="8">September</option><option value="9">October</option><option value="10">November</option><option value="11">December</option>
+                                <select id="summaryBatchSelect" class="select-modern batch-select" onchange="renderSummary()">
+                                    <option value="0">8 March</option><option value="1">6 April</option><option value="2">10 May</option>
                                 </select>
-                                <button class="btn-modern btn-primary-modern batch-btn" onclick="applySummaryMonth()">
-                                    <i class="bi bi-calendar-check"></i> Apply Month
+                                <button class="btn-modern btn-primary-modern batch-btn" onclick="applyBatchSelection()">
+                                    <i class="bi bi-calendar-check"></i> Apply Batch
                                 </button>
                             </div>
                         </div>
-                        
-                        <!-- <div class="col-12 col-md-6 col-lg-8">
-                            <div class="batch-selection-title">Batch Selection for Lead Performance</div>
-                            <div class="batch-selection-form">
-                                <select id="summaryBatchSelect" class="select-modern batch-select" onchange="renderBatchSummary()">
-                                    <option value="all">All Batches</option>
-                                    <option value="8march">8 March Batch</option><option value="6april">6 April Batch</option><option value="18may">18 May Batch</option>
-                                </select>
-                                <button class="btn-modern btn-primary-modern batch-btn" onclick="applyBatchFilter()">
-                                    <i class="bi bi-funnel"></i> Apply Filter
-                                </button>
-                                <button class="btn-modern btn-success-modern batch-btn" onclick="resetBatchFilter()">
-                                    <i class="bi bi-arrow-clockwise"></i> Reset
-                                </button>
-                            </div>
-                        </div> -->
                         <div class="table-container"><table class="table-modern"><thead><tr id="summaryHead"></tr></thead><tbody id="summaryBody"></tbody><tfoot id="summaryFooter" class="table-footer"></tfoot></table></div>
                     </div>
                     </div>
@@ -1079,6 +1063,23 @@ justify-content: center;
       
       // Employee batch mapping
       let employeeBatches = {};
+      
+      // PERFECT LOGIC: Batch to Month Mapping
+      // This array defines the mapping between batch index and month index
+      // You can easily add more batches here in the future
+      const batchToMonthMapping = [
+        { batchIndex: 0, batchName: "8 March", monthIndex: 2, monthName: "March" },
+        { batchIndex: 1, batchName: "6 April", monthIndex: 3, monthName: "April" },
+        { batchIndex: 2, batchName: "10 May", monthIndex: 4, monthName: "May" }
+        // Add more batches here as needed:
+        // { batchIndex: 3, batchName: "15 June", monthIndex: 5, monthName: "June" },
+        // { batchIndex: 4, batchName: "20 July", monthIndex: 6, monthName: "July" },
+        // { batchIndex: 5, batchName: "25 August", monthIndex: 7, monthName: "August" },
+        // { batchIndex: 6, batchName: "30 September", monthIndex: 8, monthName: "September" },
+        // { batchIndex: 7, batchName: "5 October", monthIndex: 9, monthName: "October" },
+        // { batchIndex: 8, batchName: "10 November", monthIndex: 10, monthName: "November" },
+        // { batchIndex: 9, batchName: "15 December", monthIndex: 11, monthName: "December" }
+      ];
 
       function showLoading() { document.getElementById("loadingOverlay").style.display = "flex"; }
       function hideLoading() { document.getElementById("loadingOverlay").style.display = "none"; }
@@ -1269,9 +1270,9 @@ justify-content: center;
       }
       
       function renderSummary() {
-        const monthSelect = document.getElementById("summaryMonthSelect");
-        if (monthSelect) {
-          currentSummaryMonth = parseInt(monthSelect.value);
+        const batchSelect = document.getElementById("summaryBatchSelect");
+        if (batchSelect) {
+          currentSummaryMonth = parseInt(batchSelect.value);
         }
         
         summaryHead.innerHTML = `<th class="name-cell editable-header" contenteditable onblur="updateSummaryHeader(0, this.innerText)">${customHeaders.summary[0]}</th>`;
@@ -1304,12 +1305,64 @@ justify-content: center;
         totalRow += `<td class="total-cell">${grandTotal}</td></tr>`; summaryFooter.innerHTML += totalRow;
       }
 
-      function applySummaryMonth() {
-        const monthSelect = document.getElementById("summaryMonthSelect");
-        currentSummaryMonth = parseInt(monthSelect.value);
-        const monthName = monthSelect.options[monthSelect.selectedIndex].text;
-        showNotification(`Now showing data for ${monthName}`, "success");
+      function applyBatchSelection() {
+        const batchSelect = document.getElementById("summaryBatchSelect");
+        const selectedBatchIndex = parseInt(batchSelect.value);
+        
+        // Find the batch mapping
+        const batchMapping = batchToMonthMapping.find(b => b.batchIndex === selectedBatchIndex);
+        
+        if (!batchMapping) {
+          showNotification("Invalid batch selection", "error");
+          return;
+        }
+        
+        // Get the target month from the mapping
+        const targetMonth = batchMapping.monthIndex;
+        const batchName = batchMapping.batchName;
+        const monthName = batchMapping.monthName;
+        
+        // Update the current summary month
+        currentSummaryMonth = selectedBatchIndex;
+        
+        // Calculate and update leads for all employees
+        salesData.employees.forEach(emp => {
+          // Get the summary data for the selected batch
+          const summary = salesData.leadSummary[emp][selectedBatchIndex] || { pre: 0, off: 0, rep: 0, app: 0 };
+          
+          // Calculate leads based on the rules
+          let totalLeads = 0;
+          
+          // Fresher: 1 = 1 lead
+          if (summary.pre > 0) {
+            totalLeads += summary.pre * 1;
+          }
+          
+          // Offer: 1 = 0 leads, 2 = 1 lead
+          if (summary.off >= 2) {
+            totalLeads += Math.floor(summary.off / 2) * 1;
+          }
+          
+          // Repeater: 1 = 0 leads, 2 = 0 leads (no leads from repeaters)
+          
+          // Family: 1 = 0 leads, 2 = 1 leads
+          if (summary.app >= 2) {
+            totalLeads += Math.floor(summary.app / 2) * 1;
+          }
+          
+          // Update the monthly leads for the target month
+          salesData.monthlyLeads[emp][targetMonth] = totalLeads;
+        });
+        
+        // Update the 3rd carousel to show the target month
+        document.getElementById('monthlyMonthSelect').value = targetMonth;
+        currentMonthlyMonth = targetMonth;
+        
+        // Re-render both carousels
         renderSummary();
+        renderMonthly();
+        
+        showNotification(`${batchName} batch leads calculated and updated in ${monthName} month!`, "success");
       }
       
       function applyBatchFilter() {
@@ -1469,14 +1522,19 @@ justify-content: center;
       // --- UPDATE FUNCTIONS ---
       function updateDaily(emp, m, d, val) { salesData.dailyBookings[emp][m][d] = Number(val) || 0; autoMonthly(); renderDaily(); }
       
-      // This function connects the 2nd and 3rd carousels in real-time for the currently selected month.
+      // This function connects the 2nd and 3rd carousels in real-time for the currently selected batch.
       function sUpdate(emp, k, v) {
         const oldValue = salesData.leadSummary[emp][currentSummaryMonth][k];
         const newValue = Number(v) || 0;
         salesData.leadSummary[emp][currentSummaryMonth][k] = newValue;
         
-        // Calculate the total leads for the current month based on the new logic
-        calculateMonthlyLeads(emp, currentSummaryMonth);
+        // Get the current batch mapping
+        const batchMapping = batchToMonthMapping.find(b => b.batchIndex === currentSummaryMonth);
+        
+        if (batchMapping) {
+          // Calculate the total leads for the corresponding month based on the new logic
+          calculateMonthlyLeads(emp, batchMapping.monthIndex);
+        }
         
         renderSummary();
         renderMonthly();
@@ -1806,7 +1864,7 @@ justify-content: center;
       
       // --- INITIALIZE ---
       document.addEventListener("DOMContentLoaded", () => {
-        document.getElementById("summaryMonthSelect").value = currentSummaryMonth;
+        document.getElementById("summaryBatchSelect").value = currentSummaryMonth;
         document.getElementById("monthlyMonthSelect").value = currentMonthlyMonth;
         document.getElementById("webinarYearSelect").value = currentWebinarYear;
         document.getElementById("currentYearBadge").textContent = currentWebinarYear;
